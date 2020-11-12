@@ -197,7 +197,7 @@ public class LinearSGDTrainer implements Trainer<Label>, WeightedExamples {
                     linearParameters.update(updates);
 
                     iteration++;
-                    if ((iteration % loggingInterval == 0) && (loggingInterval != -1)) {
+                    if ((loggingInterval != -1) && (iteration % loggingInterval == 0)) {
                         logger.info("At iteration " + iteration + ", average loss = " + loss/loggingInterval);
                         loss = 0.0;
                     }

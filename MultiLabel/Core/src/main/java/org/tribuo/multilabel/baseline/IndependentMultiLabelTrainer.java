@@ -18,6 +18,7 @@ package org.tribuo.multilabel.baseline;
 
 import com.oracle.labs.mlrg.olcut.config.Config;
 import com.oracle.labs.mlrg.olcut.provenance.Provenance;
+import com.oracle.labs.mlrg.olcut.util.StopWatch;
 import org.tribuo.Dataset;
 import org.tribuo.Example;
 import org.tribuo.ImmutableFeatureMap;
@@ -36,6 +37,8 @@ import org.tribuo.provenance.impl.TrainerProvenanceImpl;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Trains n independent binary {@link Model}s, each of which predicts a single {@link Label}.
@@ -46,7 +49,9 @@ import java.util.Map;
  * It trains each model sequentially, and could be optimised to train in parallel.
  */
 public class IndependentMultiLabelTrainer implements Trainer<MultiLabel> {
-
+    
+    private static final Logger logger = Logger.getLogger(IndependentMultiLabelTrainer.class.getName());
+    
     @Config(mandatory = true,description="Trainer to use for each individual label.")
     private Trainer<Label> innerTrainer;
 
@@ -63,6 +68,7 @@ public class IndependentMultiLabelTrainer implements Trainer<MultiLabel> {
 
     @Override
     public Model<MultiLabel> train(Dataset<MultiLabel> examples, Map<String, Provenance> runProvenance) {
+        logger.log(Level.FINE, "Starting multi-label trainng");
         if (examples.getOutputInfo().getUnknownCount() > 0) {
             throw new IllegalArgumentException("The supplied Dataset contained unknown Outputs, and this Trainer is supervised.");
         }
@@ -73,8 +79,13 @@ public class IndependentMultiLabelTrainer implements Trainer<MultiLabel> {
         DatasetProvenance datasetProvenance = examples.getProvenance();
         //TODO supply more suitable provenance showing it's a single dimension out of many.
         MutableDataset<Label> trainingData = new MutableDataset<>(datasetProvenance, new LabelFactory());
+        int nl = labelInfo.size();
+        logger.fine(String.format("Training for %,d labels", nl));
+        int nt = 0;
         for (MultiLabel l : labelInfo.getDomain()) {
             Label label = new Label(l.getLabelString());
+            nt++;
+            logger.log(Level.FINE, String.format("Creating training data for %s %,d/%,d", label.getLabel(), nt, nl));
             trainingData.clear();
             labelList.add(label);
             for (Example<MultiLabel> e : examples) {
@@ -82,7 +93,12 @@ public class IndependentMultiLabelTrainer implements Trainer<MultiLabel> {
                 // This sets the label in the new example to either l or MultiLabel.NEGATIVE_LABEL_STRING.
                 trainingData.add(new BinaryExample(e,newLabel));
             }
+            logger.log(Level.FINE, String.format("Training classifier for %s %,d/%,d", label.getLabel(), nt, nl));
+            StopWatch sw = new StopWatch();
+            sw.start();
             modelsList.add(innerTrainer.train(trainingData));
+            sw.stop();
+            logger.fine(String.format("Training %s took %,dms", label.getLabel(), sw.getTimeMillis()));
         }
         ModelProvenance provenance = new ModelProvenance(IndependentMultiLabelModel.class.getName(), OffsetDateTime.now(), datasetProvenance, getProvenance(), runProvenance);
         trainInvocationCounter++;

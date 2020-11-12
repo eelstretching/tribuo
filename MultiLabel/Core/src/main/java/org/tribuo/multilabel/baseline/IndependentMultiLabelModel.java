@@ -46,8 +46,8 @@ import java.util.Set;
 public class IndependentMultiLabelModel extends Model<MultiLabel> {
     private static final long serialVersionUID = 1L;
 
-    private final List<Model<Label>> models;
-    private final List<Label> labels;
+    protected final List<Model<Label>> models;
+    protected final List<Label> labels;
 
     /**
      * The list of Label and list of Model must be in the same order, and have a bijection.
@@ -62,7 +62,7 @@ public class IndependentMultiLabelModel extends Model<MultiLabel> {
         this.labels = labels;
         this.models = models;
     }
-
+    
     @Override
     public Prediction<MultiLabel> predict(Example<MultiLabel> example) {
         Set<Label> predictedLabels = new HashSet<>();
